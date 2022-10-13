@@ -1,0 +1,403 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-orphans #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- | A trie from 'Text' keys to values.</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Text.Seonbi.Trie</span><span>
+</span><span id="line-7"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier">Trie</span></a></span><span>
+</span><span id="line-8"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#elems"><span class="hs-identifier">elems</span></a></span><span>
+</span><span id="line-9"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#empty"><span class="hs-identifier">empty</span></a></span><span>
+</span><span id="line-10"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#fromList"><span class="hs-identifier">fromList</span></a></span><span>
+</span><span id="line-11"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#insert"><span class="hs-identifier">insert</span></a></span><span>
+</span><span id="line-12"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#keys"><span class="hs-identifier">keys</span></a></span><span>
+</span><span id="line-13"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#lookup"><span class="hs-identifier">lookup</span></a></span><span>
+</span><span id="line-14"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#member"><span class="hs-identifier">member</span></a></span><span>
+</span><span id="line-15"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#mergeBy"><span class="hs-identifier">mergeBy</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#null"><span class="hs-identifier">null</span></a></span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#singleton"><span class="hs-identifier">singleton</span></a></span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#size"><span class="hs-identifier">size</span></a></span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#toList"><span class="hs-identifier">toList</span></a></span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#unionL"><span class="hs-identifier">unionL</span></a></span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#unionR"><span class="hs-identifier">unionR</span></a></span><span>
+</span><span id="line-22"></span><span>    </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lookup</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">null</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ap</span></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Exts</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">empty</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">null</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">singleton</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">encodeUtf8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">decodeUtf8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Trie</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BTrie</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- | A trie from 'Text' keys to 'a' values.</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">newtype</span><span> </span><span id="Trie"><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span></span><span> </span><span id="local-6989586621679152981"><span class="annot"><a href="#local-6989586621679152981"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Trie"><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BTrie.Trie</span></span><span> </span><span class="annot"><a href="#local-6989586621679152981"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679152802"><span id="local-6989586621679152804"><span class="annot"><span class="annottext">Trie a -&gt; Trie a -&gt; Bool
+(Trie a -&gt; Trie a -&gt; Bool)
+-&gt; (Trie a -&gt; Trie a -&gt; Bool) -&gt; Eq (Trie a)
+forall a. Eq a =&gt; Trie a -&gt; Trie a -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Trie a -&gt; Trie a -&gt; Bool
+$c/= :: forall a. Eq a =&gt; Trie a -&gt; Trie a -&gt; Bool
+== :: Trie a -&gt; Trie a -&gt; Bool
+$c== :: forall a. Eq a =&gt; Trie a -&gt; Trie a -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679152795"><span id="local-6989586621679152797"><span id="local-6989586621679152799"><span class="annot"><span class="annottext">Int -&gt; Trie a -&gt; ShowS
+[Trie a] -&gt; ShowS
+Trie a -&gt; String
+(Int -&gt; Trie a -&gt; ShowS)
+-&gt; (Trie a -&gt; String) -&gt; ([Trie a] -&gt; ShowS) -&gt; Show (Trie a)
+forall a. Show a =&gt; Int -&gt; Trie a -&gt; ShowS
+forall a. Show a =&gt; [Trie a] -&gt; ShowS
+forall a. Show a =&gt; Trie a -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Trie a] -&gt; ShowS
+$cshowList :: forall a. Show a =&gt; [Trie a] -&gt; ShowS
+show :: Trie a -&gt; String
+$cshow :: forall a. Show a =&gt; Trie a -&gt; String
+showsPrec :: Int -&gt; Trie a -&gt; ShowS
+$cshowsPrec :: forall a. Show a =&gt; Int -&gt; Trie a -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="annot"><a href="Text.Seonbi.Trie.html#encodeKey"><span class="hs-identifier hs-type">encodeKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span>
+</span><span id="line-40"></span><span id="encodeKey"><span class="annot"><span class="annottext">encodeKey :: Text -&gt; ByteString
+</span><a href="Text.Seonbi.Trie.html#encodeKey"><span class="hs-identifier hs-var hs-var">encodeKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span class="hs-identifier hs-var">encodeUtf8</span></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="annot"><a href="Text.Seonbi.Trie.html#decodeKey"><span class="hs-identifier hs-type">decodeKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-43"></span><span id="decodeKey"><span class="annot"><span class="annottext">decodeKey :: ByteString -&gt; Text
+</span><a href="Text.Seonbi.Trie.html#decodeKey"><span class="hs-identifier hs-var hs-var">decodeKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">decodeUtf8</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | The empty trie.</span><span>
+</span><span id="line-46"></span><span id="local-6989586621679152791"><span class="annot"><a href="Text.Seonbi.Trie.html#empty"><span class="hs-identifier hs-type">empty</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152791"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-47"></span><span id="empty"><span class="annot"><span class="annottext">empty :: Trie a
+</span><a href="Text.Seonbi.Trie.html#empty"><span class="hs-identifier hs-var hs-var">empty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+forall a. Trie a
+</span><span class="hs-identifier hs-var">BTrie.empty</span></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- | Checks if the trie is empty.</span><span>
+</span><span id="line-50"></span><span id="local-6989586621679152789"><span class="annot"><a href="Text.Seonbi.Trie.html#null"><span class="hs-identifier hs-type">null</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152789"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-51"></span><span id="null"><span class="annot"><span class="annottext">null :: Trie a -&gt; Bool
+</span><a href="Text.Seonbi.Trie.html#null"><span class="hs-identifier hs-var hs-var">null</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152788"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152788"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Bool
+forall a. Trie a -&gt; Bool
+</span><span class="hs-identifier hs-var">BTrie.null</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152788"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- | Constructs a singleton trie.</span><span>
+</span><span id="line-54"></span><span id="local-6989586621679152841"><span class="annot"><a href="Text.Seonbi.Trie.html#singleton"><span class="hs-identifier hs-type">singleton</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679152841"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152841"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-55"></span><span id="singleton"><span class="annot"><span class="annottext">singleton :: Text -&gt; a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#singleton"><span class="hs-identifier hs-var hs-var">singleton</span></a></span></span><span> </span><span id="local-6989586621679152786"><span class="annot"><span class="annottext">key :: Text
+</span><a href="#local-6989586621679152786"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span id="local-6989586621679152785"><span class="annot"><span class="annottext">value :: a
+</span><a href="#local-6989586621679152785"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie a -&gt; Trie a) -&gt; Trie a -&gt; Trie a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; a -&gt; Trie a
+forall a. ByteString -&gt; a -&gt; Trie a
+</span><span class="hs-identifier hs-var">BTrie.singleton</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><a href="Text.Seonbi.Trie.html#encodeKey"><span class="hs-identifier hs-var">encodeKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679152786"><span class="hs-identifier hs-var">key</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679152785"><span class="hs-identifier hs-var">value</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | Gets the number of elements in the trie.</span><span>
+</span><span id="line-58"></span><span id="local-6989586621679152783"><span class="annot"><a href="Text.Seonbi.Trie.html#size"><span class="hs-identifier hs-type">size</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152783"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span><span>
+</span><span id="line-59"></span><span id="size"><span class="annot"><span class="annottext">size :: Trie a -&gt; Int
+</span><a href="Text.Seonbi.Trie.html#size"><span class="hs-identifier hs-var hs-var">size</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152782"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152782"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Int
+forall a. Trie a -&gt; Int
+</span><span class="hs-identifier hs-var">BTrie.size</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152782"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span id="local-6989586621679152965"><span class="annot"><a href="Text.Seonbi.Trie.html#fromList%27"><span class="hs-identifier hs-type">fromList'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679152965"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152965"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-62"></span><span id="fromList%27"><span class="annot"><span class="annottext">fromList' :: [(Text, a)] -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#fromList%27"><span class="hs-identifier hs-var hs-var">fromList'</span></a></span></span><span> </span><span id="local-6989586621679152779"><span class="annot"><span class="annottext">list :: [(Text, a)]
+</span><a href="#local-6989586621679152779"><span class="hs-identifier hs-var">list</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie a -&gt; Trie a) -&gt; Trie a -&gt; Trie a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[(ByteString, a)] -&gt; Trie a
+forall a. [(ByteString, a)] -&gt; Trie a
+</span><span class="hs-identifier hs-var">BTrie.fromList</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><a href="Text.Seonbi.Trie.html#encodeKey"><span class="hs-identifier hs-var">encodeKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679152777"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679152776"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679152777"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679152777"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679152776"><span class="annot"><span class="annottext">v :: a
+</span><a href="#local-6989586621679152776"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Text, a)]
+</span><a href="#local-6989586621679152779"><span class="hs-identifier hs-var">list</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span id="local-6989586621679152963"><span class="annot"><a href="Text.Seonbi.Trie.html#toList%27"><span class="hs-identifier hs-type">toList'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152963"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679152963"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span></span><span>
+</span><span id="line-65"></span><span id="toList%27"><span class="annot"><span class="annottext">toList' :: Trie a -&gt; [(Text, a)]
+</span><a href="Text.Seonbi.Trie.html#toList%27"><span class="hs-identifier hs-var hs-var">toList'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152774"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152774"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="Text.Seonbi.Trie.html#decodeKey"><span class="hs-identifier hs-var">decodeKey</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679152773"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679152772"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679152773"><span class="annot"><span class="annottext">k :: ByteString
+</span><a href="#local-6989586621679152773"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679152772"><span class="annot"><span class="annottext">v :: a
+</span><a href="#local-6989586621679152772"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; [(ByteString, a)]
+forall a. Trie a -&gt; [(ByteString, a)]
+</span><span class="hs-identifier hs-var">BTrie.toList</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152774"><span class="hs-identifier hs-var">btrie</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- | Converts a list of associated pairs into a trie.  For duplicate keys,</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- values earlier in the list shadow later ones.</span><span>
+</span><span id="line-69"></span><span id="local-6989586621679152770"><span class="annot"><a href="Text.Seonbi.Trie.html#fromList"><span class="hs-identifier hs-type">fromList</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679152770"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152770"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-70"></span><span id="fromList"><span class="annot"><span class="annottext">fromList :: [(Text, a)] -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#fromList"><span class="hs-identifier hs-var hs-var">fromList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(Text, a)] -&gt; Trie a
+forall a. [(Text, a)] -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#fromList%27"><span class="hs-identifier hs-var">fromList'</span></a></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- | Converts a trie into a list of associated pairs.  Keys will be ordered.</span><span>
+</span><span id="line-73"></span><span id="local-6989586621679152769"><span class="annot"><a href="Text.Seonbi.Trie.html#toList"><span class="hs-identifier hs-type">toList</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152769"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679152769"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span></span><span>
+</span><span id="line-74"></span><span id="toList"><span class="annot"><span class="annottext">toList :: Trie a -&gt; [(Text, a)]
+</span><a href="Text.Seonbi.Trie.html#toList"><span class="hs-identifier hs-var hs-var">toList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; [(Text, a)]
+forall a. Trie a -&gt; [(Text, a)]
+</span><a href="Text.Seonbi.Trie.html#toList%27"><span class="hs-identifier hs-var">toList'</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- | Lists all keys in the trie.  Keys will be ordered.</span><span>
+</span><span id="line-77"></span><span id="local-6989586621679152768"><span class="annot"><a href="Text.Seonbi.Trie.html#keys"><span class="hs-identifier hs-type">keys</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152768"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span></span><span>
+</span><span id="line-78"></span><span id="keys"><span class="annot"><span class="annottext">keys :: Trie a -&gt; [Text]
+</span><a href="Text.Seonbi.Trie.html#keys"><span class="hs-identifier hs-var hs-var">keys</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152767"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152767"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; [ByteString] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">Prelude.map</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="Text.Seonbi.Trie.html#decodeKey"><span class="hs-identifier hs-var">decodeKey</span></a></span><span> </span><span class="annot"><span class="annottext">([ByteString] -&gt; [Text]) -&gt; [ByteString] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; [ByteString]
+forall a. Trie a -&gt; [ByteString]
+</span><span class="hs-identifier hs-var">BTrie.keys</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152767"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- | Lists all values in the trie.  Values are ordered by their associated keys.</span><span>
+</span><span id="line-81"></span><span id="local-6989586621679152765"><span class="annot"><a href="Text.Seonbi.Trie.html#elems"><span class="hs-identifier hs-type">elems</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152765"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679152765"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span></span><span>
+</span><span id="line-82"></span><span id="elems"><span class="annot"><span class="annottext">elems :: Trie a -&gt; [a]
+</span><a href="Text.Seonbi.Trie.html#elems"><span class="hs-identifier hs-var hs-var">elems</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152764"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152764"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; [a]
+forall a. Trie a -&gt; [a]
+</span><span class="hs-identifier hs-var">BTrie.elems</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152764"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- | Gets the value associated with a key if it exists.</span><span>
+</span><span id="line-85"></span><span id="local-6989586621679152762"><span class="annot"><a href="Text.Seonbi.Trie.html#lookup"><span class="hs-identifier hs-type">lookup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152762"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679152762"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-86"></span><span id="lookup"><span class="annot"><span class="annottext">lookup :: Text -&gt; Trie a -&gt; Maybe a
+</span><a href="Text.Seonbi.Trie.html#lookup"><span class="hs-identifier hs-var hs-var">lookup</span></a></span></span><span> </span><span id="local-6989586621679152761"><span class="annot"><span class="annottext">key :: Text
+</span><a href="#local-6989586621679152761"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152760"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152760"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Trie a -&gt; Maybe a
+forall a. ByteString -&gt; Trie a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">BTrie.lookup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><a href="Text.Seonbi.Trie.html#encodeKey"><span class="hs-identifier hs-var">encodeKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679152761"><span class="hs-identifier hs-var">key</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152760"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- | Checks if a key has a value in the trie.</span><span>
+</span><span id="line-89"></span><span id="local-6989586621679152758"><span class="annot"><a href="Text.Seonbi.Trie.html#member"><span class="hs-identifier hs-type">member</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152758"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-90"></span><span id="member"><span class="annot"><span class="annottext">member :: Text -&gt; Trie a -&gt; Bool
+</span><a href="Text.Seonbi.Trie.html#member"><span class="hs-identifier hs-var hs-var">member</span></a></span></span><span> </span><span id="local-6989586621679152757"><span class="annot"><span class="annottext">key :: Text
+</span><a href="#local-6989586621679152757"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152756"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152756"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Trie a -&gt; Bool
+forall a. ByteString -&gt; Trie a -&gt; Bool
+</span><span class="hs-identifier hs-var">BTrie.member</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><a href="Text.Seonbi.Trie.html#encodeKey"><span class="hs-identifier hs-var">encodeKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679152757"><span class="hs-identifier hs-var">key</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152756"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- | Inserts a new key into the trie.</span><span>
+</span><span id="line-93"></span><span id="local-6989586621679152754"><span class="annot"><a href="Text.Seonbi.Trie.html#insert"><span class="hs-identifier hs-type">insert</span></a></span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-comment">-- ^ A new key to insert.  If there is already the same key in the trie,</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-comment">-- the existing value is overwritten by the new value.</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679152754"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-comment">-- ^ A value associated to the key.</span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152754"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-comment">-- ^ An existing trie.</span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152754"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-comment">-- ^ The new trie with the inserted key.</span></span><span>
+</span><span id="line-103"></span><span id="insert"><span class="annot"><span class="annottext">insert :: Text -&gt; a -&gt; Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#insert"><span class="hs-identifier hs-var hs-var">insert</span></a></span></span><span> </span><span id="local-6989586621679152753"><span class="annot"><span class="annottext">key :: Text
+</span><a href="#local-6989586621679152753"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span id="local-6989586621679152752"><span class="annot"><span class="annottext">value :: a
+</span><a href="#local-6989586621679152752"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152751"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152751"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie a -&gt; Trie a) -&gt; Trie a -&gt; Trie a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; a -&gt; Trie a -&gt; Trie a
+forall a. ByteString -&gt; a -&gt; Trie a -&gt; Trie a
+</span><span class="hs-identifier hs-var">BTrie.insert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><a href="Text.Seonbi.Trie.html#encodeKey"><span class="hs-identifier hs-var">encodeKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679152753"><span class="hs-identifier hs-var">key</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679152752"><span class="hs-identifier hs-var">value</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152751"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- | Combines two tries, using a function to resolve collisions.  This can only</span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- define the space of functions between union and symmetric difference but,</span><span>
+</span><span id="line-107"></span><span class="hs-comment">-- with those two, all set operations can be defined (albeit inefficiently).</span><span>
+</span><span id="line-108"></span><span id="local-6989586621679152749"><span class="annot"><a href="Text.Seonbi.Trie.html#mergeBy"><span class="hs-identifier hs-type">mergeBy</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679152749"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679152749"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679152749"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152749"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152749"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152749"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-109"></span><span id="mergeBy"><span class="annot"><span class="annottext">mergeBy :: (a -&gt; a -&gt; Maybe a) -&gt; Trie a -&gt; Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#mergeBy"><span class="hs-identifier hs-var hs-var">mergeBy</span></a></span></span><span> </span><span id="local-6989586621679152748"><span class="annot"><span class="annottext">f :: a -&gt; a -&gt; Maybe a
+</span><a href="#local-6989586621679152748"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152747"><span class="annot"><span class="annottext">a :: Trie a
+</span><a href="#local-6989586621679152747"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152746"><span class="annot"><span class="annottext">b :: Trie a
+</span><a href="#local-6989586621679152746"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie a -&gt; Trie a) -&gt; Trie a -&gt; Trie a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; a -&gt; Maybe a) -&gt; Trie a -&gt; Trie a -&gt; Trie a
+forall a. (a -&gt; a -&gt; Maybe a) -&gt; Trie a -&gt; Trie a -&gt; Trie a
+</span><span class="hs-identifier hs-var">BTrie.mergeBy</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Maybe a
+</span><a href="#local-6989586621679152748"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152747"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152746"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- | Combines two tries, resolving conflicts by choosing the value from the</span><span>
+</span><span id="line-112"></span><span class="hs-comment">-- left (former) trie.</span><span>
+</span><span id="line-113"></span><span id="local-6989586621679152744"><span class="annot"><a href="Text.Seonbi.Trie.html#unionL"><span class="hs-identifier hs-type">unionL</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152744"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152744"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152744"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-114"></span><span id="unionL"><span class="annot"><span class="annottext">unionL :: Trie a -&gt; Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#unionL"><span class="hs-identifier hs-var hs-var">unionL</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152743"><span class="annot"><span class="annottext">left :: Trie a
+</span><a href="#local-6989586621679152743"><span class="hs-identifier hs-var">left</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152742"><span class="annot"><span class="annottext">right :: Trie a
+</span><a href="#local-6989586621679152742"><span class="hs-identifier hs-var">right</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie a -&gt; Trie a) -&gt; Trie a -&gt; Trie a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a -&gt; Trie a
+</span><span class="hs-identifier hs-var">BTrie.unionL</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152743"><span class="hs-identifier hs-var">left</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152742"><span class="hs-identifier hs-var">right</span></a></span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span class="hs-comment">-- | Combines two tries, resolving conflicts by choosing the value from the</span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- right (latter) trie.</span><span>
+</span><span id="line-118"></span><span id="local-6989586621679152740"><span class="annot"><a href="Text.Seonbi.Trie.html#unionR"><span class="hs-identifier hs-type">unionR</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152740"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152740"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152740"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-119"></span><span id="unionR"><span class="annot"><span class="annottext">unionR :: Trie a -&gt; Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#unionR"><span class="hs-identifier hs-var hs-var">unionR</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152739"><span class="annot"><span class="annottext">left :: Trie a
+</span><a href="#local-6989586621679152739"><span class="hs-identifier hs-var">left</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152738"><span class="annot"><span class="annottext">right :: Trie a
+</span><a href="#local-6989586621679152738"><span class="hs-identifier hs-var">right</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie a -&gt; Trie a) -&gt; Trie a -&gt; Trie a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a -&gt; Trie a
+</span><span class="hs-identifier hs-var">BTrie.unionR</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152739"><span class="hs-identifier hs-var">left</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152738"><span class="hs-identifier hs-var">right</span></a></span><span>
+</span><span id="line-120"></span><span>
+</span><span id="line-121"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679152734"><span class="annot"><span class="hs-identifier hs-type">Functor</span></span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-122"></span><span>    </span><span id="local-6989586621679152732"><span class="annot"><span class="annottext">fmap :: (a -&gt; b) -&gt; Trie a -&gt; Trie b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">fmap</span></span></span><span> </span><span id="local-6989586621679152731"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679152731"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152730"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152730"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie b -&gt; Trie b
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie b -&gt; Trie b) -&gt; Trie b -&gt; Trie b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; Trie a -&gt; Trie b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679152731"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152730"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679152697"><span id="local-6989586621679152699"><span id="local-6989586621679152701"><span id="local-6989586621679152703"><span id="local-6989586621679152705"><span id="local-6989586621679152707"><span id="local-6989586621679152709"><span id="local-6989586621679152711"><span id="local-6989586621679152713"><span id="local-6989586621679152715"><span id="local-6989586621679152717"><span id="local-6989586621679152719"><span id="local-6989586621679152721"><span id="local-6989586621679152723"><span id="local-6989586621679152725"><span id="local-6989586621679152728"><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-125"></span><span>    </span><span id="local-6989586621679152695"><span class="annot"><span class="annottext">foldMap :: (a -&gt; m) -&gt; Trie a -&gt; m
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">foldMap</span></span></span><span> </span><span id="local-6989586621679152693"><span class="annot"><span class="annottext">f :: a -&gt; m
+</span><a href="#local-6989586621679152693"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152692"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152692"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; m) -&gt; Trie a -&gt; m
+forall (t :: * -&gt; *) m a.
+(Foldable t, Monoid m) =&gt;
+(a -&gt; m) -&gt; t a -&gt; m
+</span><span class="hs-identifier hs-var">foldMap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; m
+</span><a href="#local-6989586621679152693"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152692"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679152683"><span id="local-6989586621679152685"><span id="local-6989586621679152687"><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-128"></span><span>    </span><span id="local-6989586621679152681"><span class="annot"><span class="annottext">traverse :: (a -&gt; f b) -&gt; Trie a -&gt; f (Trie b)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">traverse</span></span></span><span> </span><span id="local-6989586621679152679"><span class="annot"><span class="annottext">f :: a -&gt; f b
+</span><a href="#local-6989586621679152679"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152678"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152678"><span class="hs-identifier hs-var">btrie</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie b -&gt; Trie b
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie b -&gt; Trie b) -&gt; f (Trie b) -&gt; f (Trie b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; f b) -&gt; Trie a -&gt; f (Trie b)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; f b
+</span><a href="#local-6989586621679152679"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152678"><span class="hs-identifier hs-var">btrie</span></a></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679152668"><span id="local-6989586621679152670"><span id="local-6989586621679152672"><span class="annot"><span class="hs-identifier hs-type">Applicative</span></span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-131"></span><span>    </span><span id="local-6989586621679152666"><span class="annot"><span class="annottext">pure :: a -&gt; Trie a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">pure</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Trie a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-132"></span><span>    </span><span id="local-6989586621679152665"><span class="annot"><span class="annottext">&lt;*&gt; :: Trie (a -&gt; b) -&gt; Trie a -&gt; Trie b
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">(&lt;*&gt;)</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie (a -&gt; b) -&gt; Trie a -&gt; Trie b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-identifier hs-var">ap</span></span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679152661"><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-135"></span><span>    </span><span id="local-6989586621679152658"><span class="annot"><span class="annottext">return :: a -&gt; Trie a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">return</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; a -&gt; Trie a
+forall a. Text -&gt; a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#singleton"><span class="hs-identifier hs-var">singleton</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;&quot;</span></span><span>
+</span><span id="line-136"></span><span>    </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152657"><span class="annot"><span class="annottext">btrie :: Trie a
+</span><a href="#local-6989586621679152657"><span class="hs-identifier hs-var">btrie</span></a></span></span><span> </span><span id="local-6989586621679152656"><span class="annot"><span class="annottext">&gt;&gt;= :: Trie a -&gt; (a -&gt; Trie b) -&gt; Trie b
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">&gt;&gt;=</span></span></span><span> </span><span id="local-6989586621679152655"><span class="annot"><span class="annottext">f :: a -&gt; Trie b
+</span><a href="#local-6989586621679152655"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie b -&gt; Trie b
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie b -&gt; Trie b) -&gt; Trie b -&gt; Trie b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152657"><span class="hs-identifier hs-var">btrie</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; (a -&gt; Trie b) -&gt; Trie b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span> </span><span id="local-6989586621679152654"><span class="annot"><span class="annottext">v :: a
+</span><a href="#local-6989586621679152654"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">a -&gt; Trie b
+</span><a href="#local-6989586621679152655"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679152654"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152653"><span class="annot"><span class="annottext">b :: Trie b
+</span><a href="#local-6989586621679152653"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Trie b
+</span><a href="#local-6989586621679152653"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-137"></span><span>
+</span><span id="line-138"></span><span id="local-6989586621679152652"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679152647"><span id="local-6989586621679152649"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="annot"><a href="#local-6989586621679152652"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152652"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152645"><span class="annot"><span class="annottext">a :: Trie a
+</span><a href="#local-6989586621679152645"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679152644"><span class="annot"><span class="annottext">&lt;&gt; :: Trie a -&gt; Trie a -&gt; Trie a
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;&gt;</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152643"><span class="annot"><span class="annottext">b :: Trie a
+</span><a href="#local-6989586621679152643"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152645"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a -&gt; Trie a
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152643"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span id="local-6989586621679152642"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679152637"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="#local-6989586621679152642"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152642"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-142"></span><span>    </span><span id="local-6989586621679152635"><span class="annot"><span class="annottext">mempty :: Trie a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">mempty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-143"></span><span>    </span><span id="local-6989586621679152634"><span class="annot"><span class="annottext">mappend :: Trie a -&gt; Trie a -&gt; Trie a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">mappend</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152633"><span class="annot"><span class="annottext">a :: Trie a
+</span><a href="#local-6989586621679152633"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span id="local-6989586621679152632"><span class="annot"><span class="annottext">b :: Trie a
+</span><a href="#local-6989586621679152632"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a
+forall a. Trie a -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-var">Trie</span></a></span><span> </span><span class="annot"><span class="annottext">(Trie a -&gt; Trie a) -&gt; Trie a -&gt; Trie a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; Trie a -&gt; Trie a
+forall a. Monoid a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">mappend</span></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152633"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Trie a
+</span><a href="#local-6989586621679152632"><span class="hs-identifier hs-var">b</span></a></span></span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span id="local-6989586621679152631"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679152628"><span class="annot"><span class="hs-identifier hs-type">GHC.Exts.IsList</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152631"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-146"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="Item"><span class="annot"><span class="hs-identifier hs-var">Item</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Text.Seonbi.Trie.html#Trie"><span class="hs-identifier hs-type">Trie</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679152631"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679152631"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>    </span><span id="local-6989586621679152625"><span class="annot"><span class="annottext">fromList :: [Item (Trie a)] -&gt; Trie a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">fromList</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Item (Trie a)] -&gt; Trie a
+forall a. [(Text, a)] -&gt; Trie a
+</span><a href="Text.Seonbi.Trie.html#fromList%27"><span class="hs-identifier hs-var">fromList'</span></a></span><span>
+</span><span id="line-148"></span><span>    </span><span id="local-6989586621679152624"><span class="annot"><span class="annottext">toList :: Trie a -&gt; [Item (Trie a)]
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toList</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Trie a -&gt; [Item (Trie a)]
+forall a. Trie a -&gt; [(Text, a)]
+</span><a href="Text.Seonbi.Trie.html#toList%27"><span class="hs-identifier hs-var">toList'</span></a></span></span><span>
+</span><span id="line-149"></span></pre></body></html>
