@@ -145,7 +145,7 @@ jobs:
     - uses: denoland/setup-deno@v1
       with:
         deno-version: v1.x
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: binaries-${{ matrix.os }}-ghc-8.8
         path: ${{ runner.temp }}/bin
@@ -310,19 +310,19 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: binaries-macos-11-ghc-8.8
         path: /tmp/binaries-macos
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: binaries-windows-2022-ghc-8.8
         path: /tmp/binaries-windows
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: image
         path: /tmp/images
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: image-metadata
         path: /tmp/image-metadata
@@ -372,11 +372,11 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: sdist-ubuntu-22.04-ghc-8.8
         path: /tmp/sdist
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: dists
         path: /tmp/dists
@@ -446,11 +446,11 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: dists
         path: /tmp/dists
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: docs
         path: /tmp/docs
